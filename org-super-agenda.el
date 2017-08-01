@@ -221,7 +221,7 @@ With prefix argument ARG, turn on if positive, otherwise off."
 
 ;;;; Group selectors
 
-(cl-defmacro org-super-agenda--defgroup (name docstring &key section-name test let*)
+(cl-defmacro org-super-agenda--defgroup (name docstring &key section-name test let* before)
   "Define an agenda-item group function.
 NAME is a symbol that will be appended to `org-super-agenda--group-' to
 construct the name of the group function.  A symbol like `:name'
@@ -240,6 +240,10 @@ separate list.
 :LET* is a `let*' binding form that is bound around the function
 body after the ARGS are made a list.
 
+:BEFORE is a form that will run before the main loop.  It may be
+used, e.g. to set variables with one `pcase', rather than a `pcase'
+in each variable's binding.
+
 Finally a list of three items is returned, with the value
 returned by :SECTION-NAME as the first item, a list of items not
 matching the :TEST as the second, and a list of items matching as
@@ -256,6 +260,8 @@ the third."
          (unless (listp args)
            (setq args (list args)))
          (let* ,let*
+           ,(when before
+              before)
            (cl-loop with section-name = ,section-name
                     for item in items
                     if ,test
