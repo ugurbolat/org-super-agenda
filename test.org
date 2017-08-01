@@ -46,6 +46,9 @@ Should probably do this before I take over the world.  Want to look my best.  (N
 
 ** TODO [#B] Internet                                                :bills:
 DEADLINE: <2017-07-21 Fri -1m>
+:PROPERTIES:
+:AUTHOR:   Bob
+:END:
 
 ** TODO [#A] Spaceship lease                               :bills:spaceship:
 DEADLINE: <2017-08-01 Tue -1m>
@@ -335,6 +338,40 @@ Gotta buy one first, though.
                       :order 98)
                (:name "Scheduled earlier"
                       :scheduled past))))
+        (org-agenda nil "a")))
+
+    (with-org-today-date "2017-07-05 00:00"
+      (let ((org-agenda-files (list "~/src/org-super-agenda/test.org"))
+            (org-agenda-span 'day)
+            (org-super-agenda-groups
+             '((:name "Schedule"
+                      :time-grid t)
+               (
+                :scheduled today)
+               (:name "Habits"
+                      :habit t)
+               (
+                :deadline today)
+               (
+                :deadline past)
+               (
+                :deadline future)
+               (:name "Unimportant"
+                      :todo ("SOMEDAY" "MAYBE" "CHECK" "TO-READ" "TO-WATCH")
+                      :order 100)
+               (:name "Waiting..."
+                      :todo "WAITING"
+                      :order 98)
+               (
+                :scheduled past))))
+        (org-agenda nil "a")))
+
+(with-org-today-date "2017-07-05 00:00"
+      (let ((org-agenda-files (list "~/src/org-super-agenda/test.org"))
+            (org-agenda-span 'day)
+            (org-super-agenda-groups
+             '((:property-author "Bob")
+(:deadline future))))
         (org-agenda nil "a")))
 
     (with-org-today-date "2017-07-05 00:00"

@@ -269,9 +269,145 @@ the third."
                     else collect item into non-matching
                     finally return (list section-name non-matching matching)))))))
 
+;;;;; Properties
+
+;; Should also be usable for deadline/scheduled, because they are properties
+
+(cl-defmacro org-super-agenda--defproperty-group (property docstring &key selector let* section-name test)
+  "Testing"
+  (declare (indent defun))
+  `(org-super-agenda--defgroup ,(or selector
+                                    (intern (concat "property-" (symbol-name property))))
+     ,docstring
+     :let* ,let*
+     :section-name ,(or section-name `(concat "Property: " ,(symbol-name property)))
+     :test (org-super-agenda--when-with-marker-buffer (org-super-agenda--get-marker item)
+             (when-let ((property-value (org-entry-get (point) ,(upcase (symbol-name property)))))
+               ,test))))
+
+(org-super-agenda--defproperty-group author
+  "Match an AUTHOR property."
+  :test (cl-member property-value args :test #'string=))
+
+(cl-defmacro org-super-agenda--defdate-group (name docstring)
+  (declare (indent defun))
+  (setq name-string (symbol-name name))
+  `(org-super-agenda--defproperty-group ,(intern (symbol-name name))
+     ,docstring
+     :selector ,name
+     :section-name (pcase (car args)
+                     ('t  ;; Check for any deadline info
+                      (concat ,name-string " items"))
+                     ((pred not)  ;; Has no deadline info
+                      (concat "No " (downcase ,name-string)))
+                     ('past  ;; Deadline before today
+                      (concat "Past " ,name-string))
+                     ('today  ;; Deadline for today
+                      (concat ,name-string " today"))
+                     ('future  ;; Deadline in the future
+                      (concat ,name-string " soon"))
+                     ('before  ;; Before date given
+                      (concat ,name-string " before " (second args)))
+                     ('on  ;; On date given
+                      (concat ,name-string " on " (second args)))
+                     ('after  ;; After date given
+                      (concat ,name-string " after " (second args))))
+     :let* ((today (pcase (car args)  ; Perhaps premature optimization
+                     ((or 'past 'today 'future 'before 'on 'after)
+                      (org-today))))
+            (target-date (pcase (car args)
+                           ((or 'before 'on 'after)
+                            (org-time-string-to-absolute (second args))))))
+     :test (pcase (car args)
+             ('t  ;; Check for any date info
+              t)
+             ((pred not)  ;; Has no date info
+              (not property-value))
+             ('past  ;; Date before today
+              (< (org-time-string-to-absolute property-value) today))
+             ('today  ;; Date for today
+              (= today (org-time-string-to-absolute property-value)))
+             ('future  ;; Date in the future
+              (< today (org-time-string-to-absolute property-value)))
+             ('before  ;; Before date given
+              (< (org-time-string-to-absolute property-value) target-date))
+             ('on  ;; On date given
+              (= (org-time-string-to-absolute property-value) target-date))
+             ('after  ;; After date given
+              (> (org-time-string-to-absolute property-value) target-date)))))
+
+
 ;;;;; Date/time-related
 
 ;; TODO: I guess these should be in a date-matcher macro
+
+(cl-defmacro org-super-agenda--defdate-group (name docstring)
+  (declare (indent defun))
+  (setq name-string (symbol-name name))
+  `(org-super-agenda--defgroup ,(intern (symbol-name name))
+     ,docstring
+     :section-name (pcase (car args)
+                     ('t  ;; Check for any deadline info
+                      (concat ,name-string " items"))
+                     ((pred not)  ;; Has no deadline info
+                      (concat "No " (downcase ,name-string)))
+                     ('past  ;; Deadline before today
+                      (concat "Past " ,name-string))
+                     ('today  ;; Deadline for today
+                      (concat ,name-string " today"))
+                     ('future  ;; Deadline in the future
+                      (concat ,name-string " soon"))
+                     ('before  ;; Before date given
+                      (concat ,name-string " before " (second args)))
+                     ('on  ;; On date given
+                      (concat ,name-string " on " (second args)))
+                     ('after  ;; After date given
+                      (concat ,name-string " after " (second args))))
+     :let* ((today (pcase (car args)  ; Perhaps premature optimization
+                     ((or 'past 'today 'future 'before 'on 'after)
+                      (org-today))))
+            (target-date (pcase (car args)
+                           ((or 'before 'on 'after)
+                            (org-time-string-to-absolute (second args))))))
+     :test (org-super-agenda--when-with-marker-buffer (org-super-agenda--get-marker item)
+             (when-let ((time (org-entry-get (point) ,(upcase name-string))))
+               (pcase (car args)
+                 ('t  ;; Check for any date info
+                  t)
+                 ((pred not)  ;; Has no date info
+                  (not time))
+                 ('past  ;; Date before today
+                  (< (org-time-string-to-absolute time) today))
+                 ('today  ;; Date for today
+                  (= today (org-time-string-to-absolute time)))
+                 ('future  ;; Date in the future
+                  (< today (org-time-string-to-absolute time)))
+                 ('before  ;; Before date given
+                  (< (org-time-string-to-absolute time) target-date))
+                 ('on  ;; On date given
+                  (= (org-time-string-to-absolute time) target-date))
+                 ('after  ;; After date given
+                  (> (org-time-string-to-absolute time) target-date)))))))
+
+(org-super-agenda--defdate-group deadline
+  "Group items that have a deadline.
+Argument can be `t' (to match items with any deadline), `nil' (to
+match items that have no deadline), `past` (to match items with a
+deadline in the past), `today' (to match items whose deadline is
+today), or `future' (to match items with a deadline in the
+future).  Argument may also be given like `before DATE' or `after
+DATE', where DATE is a date string that
+`org-time-string-to-absolute' can process.")
+
+(org-super-agenda--defdate-group scheduled
+  "Group items that are scheduled.
+Argument can be `t' (to match items with any scheduled date),
+`nil' (to match items that have no scheduled date), `past` (to
+match items with a scheduled date in the past), `today' (to match
+items whose scheduled date is today), or `future' (to match items
+with a scheduled date in the future).  Argument may also be given
+like `before DATE' or `after DATE', where DATE is a date string
+that `org-time-string-to-absolute' can process.")
 
 (org-super-agenda--defgroup date
   "Group items that have a date associated.
@@ -304,6 +440,8 @@ agenda time-grid. "
           ;; it is set and is equal to 'time, the item is not part of
           ;; the time-grid.  Yes, this is confusing.  :)
           (not (eql time 'time))))
+
+
 
 (org-super-agenda--defgroup deadline
   "Group items that have a deadline.
