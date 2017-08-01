@@ -366,48 +366,42 @@ for today), or `future' (to match items scheduled for the
 future).  Argument may also be given like `before DATE' or `after
 DATE', where DATE is a date string that
 `org-time-string-to-absolute' can process."
-  :section-name (pcase (car args)
-                  ('t  ;; Check for any deadline info
-                   "scheduled items")
-                  ((pred not)  ;; Has no deadline info
-                   "Unscheduled items ")
-                  ('past  ;; Deadline before today
-                   "Past scheduled")
-                  ('today  ;; Deadline for today
-                   "Scheduled today")
-                  ('future  ;; Deadline in the future
-                   "Scheduled soon")
-                  ('before  ;; Before date given
-                   (concat "Scheduled before " (second args)))
-                  ('on  ;; On date given
-                   (concat "Scheduled on " (second args)))
-                  ('after  ;; After date given
-                   (concat "Scheduled after " (second args))))
   :let* ((today (pcase (car args)  ; Perhaps premature optimization
                   ((or 'past 'today 'future 'before 'on 'after)
                    (org-today))))
          (target-date (pcase (car args)
                         ((or 'before 'on 'after)
-                         (org-time-string-to-absolute (second args))))))
+                         (org-time-string-to-absolute (second args)))))
+         section-name test-form)
+  :section-name section-name
+  :before (pcase (car args)
+            ('t  ;; Check for any deadline info
+             (setq section-name "scheduled items"
+                   test-form t))
+            ((pred not)  ;; Has no deadline info
+             (setq section-name "Unscheduled items "
+                   test-form '(not time)))
+            ('past  ;; Deadline before today
+             (setq section-name "Past scheduled"
+                   test-form '(< (org-time-string-to-absolute time) today)))
+            ('today  ;; Deadline for today
+             (setq section-name "Scheduled today"
+                   test-form '(= today (org-time-string-to-absolute time))))
+            ('future  ;; Deadline in the future
+             (setq section-name "Scheduled soon"
+                   test-form '(< today (org-time-string-to-absolute time))))
+            ('before  ;; Before date given
+             (setq section-name (concat "Scheduled before " (second args))
+                   test-form '(< (org-time-string-to-absolute time) target-date)))
+            ('on  ;; On date given
+             (setq section-name (concat "Scheduled on " (second args))
+                   test-form '(= (org-time-string-to-absolute time) target-date)))
+            ('after  ;; After date given
+             (setq section-name (concat "Scheduled after " (second args))
+                   test-form '(> (org-time-string-to-absolute time) target-date))))
   :test (org-super-agenda--when-with-marker-buffer (org-super-agenda--get-marker item)
           (when-let ((time (org-entry-get (point) "SCHEDULED")))
-            (pcase (car args)
-              ('t  ;; Check for any scheduled info
-               t)
-              ((pred not)  ;; Has no scheduled info
-               (not time))
-              ('past  ;; Scheduled before today
-               (< (org-time-string-to-absolute time) today))
-              ('today  ;; Scheduled for today
-               (= today (org-time-string-to-absolute time)))
-              ('future  ;; Scheduled in the future
-               (< today (org-time-string-to-absolute time)))
-              ('before  ;; Before date given
-               (< (org-time-string-to-absolute time) target-date))
-              ('on  ;; On date given
-               (= (org-time-string-to-absolute time) target-date))
-              ('after  ;; After date given
-               (> (org-time-string-to-absolute time) target-date))))))
+            (funcall (lambda () test-form)))))
 
 ;;;;; Misc
 
