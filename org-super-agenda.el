@@ -251,22 +251,20 @@ matching the :TEST as the second, and a list of items matching as
 the third."
   (declare (indent defun)
            (debug (symbolp stringp body)))
-  (let ((group-type (intern (concat ":" (symbol-name name))))
-        (function-name (intern (concat "org-super-agenda--group-" (symbol-name name)))))
+  (let* ((group-type (intern (concat ":" (symbol-name name))))
+         (function-name (intern (concat "org-super-agenda--:" (symbol-name name)))))
     ;; Associate the group type with this function so the dispatcher can find it
-    `(progn
-       (setq org-super-agenda-group-types (plist-put org-super-agenda-group-types ,group-type ',function-name))
-       (defun ,function-name (items args)
-         ,docstring
-         (unless (listp args)
-           (setq args (list args)))
-         (let* ,let*
-           (cl-loop with section-name = ,section-name
-                    for item in items
-                    if ,test
-                    collect item into matching
-                    else collect item into non-matching
-                    finally return (list section-name non-matching matching)))))))
+    `(defun ,function-name (items args)
+       ,docstring
+       (unless (listp args)
+         (setq args (list args)))
+       (let* ,let*
+         (cl-loop with section-name = ,section-name
+                  for item in items
+                  if ,test
+                  collect item into matching
+                  else collect item into non-matching
+                  finally return (list section-name non-matching matching))))))
 
 ;;;;; Date/time-related
 
@@ -624,7 +622,7 @@ The string should be the priority cookie letter, e.g. \"A\".")
 
 ;; FIXME: Do I need to nreverse the items in each group?
 
-(defun org-super-agenda--auto-group-items (all-items &rest ignore)
+(defun org-super-agenda--:auto-groups (all-items &rest ignore)
   "Divide ALL-ITEMS into groups based on their AGENDA-GROUP property."
   (cl-loop with groups = (ht-create)
            for item in all-items
@@ -640,10 +638,8 @@ The string should be the priority cookie letter, e.g. \"A\".")
                                          for name = (concat "Group: " key)
                                          collect (list :name name
                                                        :items (ht-get groups key))))))
-(setq org-super-agenda-group-types (plist-put org-super-agenda-group-types
-                                              :auto-groups #'org-super-agenda--auto-group-items))
 
-(defun org-super-agenda--auto-group-category (all-items &rest ignore)
+(defun org-super-agenda--:auto-category (all-items &rest ignore)
   "Divide ALL-ITEMS into groups based on their org-category property."
   (cl-loop with categories = (ht-create)
            for item in all-items
@@ -658,8 +654,6 @@ The string should be the priority cookie letter, e.g. \"A\".")
                                          for name = (concat "Category: " key)
                                          collect (list :name name
                                                        :items (ht-get categories key))))))
-(setq org-super-agenda-group-types (plist-put org-super-agenda-group-types
-                                              :auto-category #'org-super-agenda--auto-group-category))
 
 ;;;;; Dispatchers
 
@@ -668,7 +662,12 @@ The string should be the priority cookie letter, e.g. \"A\".")
 Grouping functions are listed in `org-super-agenda-group-types', which
 see."
   (cl-loop for (group-type args) on group by 'cddr  ; plist access
-           for fn = (plist-get org-super-agenda-group-types group-type)
+           for fn = (unless (memq group-type '(:name :order))
+                      ;; fn is a selector, not a special keyword
+                      (if (and (setq fn (intern (concat "org-super-agenda--" (symbol-name group-type))))
+                               (functionp fn))
+                          fn
+                        (user-error "Invalid super-agenda selector: %s" fn)))
            ;; This double "when fn" is an ugly hack, but it lets us
            ;; use the destructuring-bind; otherwise we'd have to put
            ;; all the collection logic in a progn, or do the
@@ -691,7 +690,7 @@ see."
 ;; more DRY, but that would preclude using the loop macro, and might
 ;; be slower.  Decisions, decisions...
 
-(defun org-super-agenda--group-dispatch-and (items group)
+(defun org-super-agenda--:and (items group)
   "Group ITEMS that match all selectors in GROUP."
   ;; Used for the `:and' selector.
   (cl-loop with final-non-matches with final-matches
@@ -714,19 +713,15 @@ see."
            finally return (list (s-join " AND " (-non-nil names))
                                 final-non-matches
                                 final-matches)))
-(setq org-super-agenda-group-types (plist-put org-super-agenda-group-types
-                                              :and 'org-super-agenda--group-dispatch-and))
 
-(defun org-super-agenda--group-dispatch-not (items group)
+(defun org-super-agenda--:not (items group)
   "Group ITEMS that match no selectors in GROUP."
   ;; Used for the `:not' selector.
   ;; I think all I need to do is re-dispatch and reverse the results
   (-let (((name non-matching matching) (org-super-agenda--group-dispatch items group)))
     (list name matching non-matching)))
-(setq org-super-agenda-group-types (plist-put org-super-agenda-group-types
-                                              :not 'org-super-agenda--group-dispatch-not))
 
-(defun org-super-agenda--group-dispatch-discard (items group)
+(defun org-super-agenda--:discard (items group)
   "Discard items that match GROUP.
 Any groups processed after this will not see these items."
   (cl-loop for (group-type args) on group by 'cddr  ; plist access
@@ -745,8 +740,6 @@ Any groups processed after this will not see these items."
            finally return (list (s-join " and " (-non-nil names))
                                 items
                                 nil)))
-(setq org-super-agenda-group-types (plist-put org-super-agenda-group-types
-                                              :discard 'org-super-agenda--group-dispatch-discard))
 
 ;;;;; Transformers
 
