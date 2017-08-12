@@ -567,7 +567,7 @@ The string should be the priority cookie letter, e.g. \"A\".")
                  for filter in org-super-agenda-groups
                  for custom-section-name = (plist-get filter :name)
                  for order = (or (plist-get filter :order) 0)  ; Lowest number first, 0 by default
-                 for (auto-section-name non-matching matching) = (org-super-agenda--group-dispatch all-items filter)
+                 for (auto-section-name non-matching matching) = (org-super-agenda--dispatch-group all-items filter)
 
                  ;; Auto groups
                  if (eql auto-section-name :auto-groups)
@@ -657,7 +657,7 @@ The string should be the priority cookie letter, e.g. \"A\".")
 
 ;;;;; Dispatchers
 
-(defun org-super-agenda--group-dispatch (items group)
+(defun org-super-agenda--dispatch-group (items group)
   "Group ITEMS with the appropriate grouping functions for GROUP.
 Grouping functions are listed in `org-super-agenda-group-types', which
 see."
@@ -718,7 +718,7 @@ see."
   "Group ITEMS that match no selectors in GROUP."
   ;; Used for the `:not' selector.
   ;; I think all I need to do is re-dispatch and reverse the results
-  (-let (((name non-matching matching) (org-super-agenda--group-dispatch items group)))
+  (-let (((name non-matching matching) (org-super-agenda--dispatch-group items group)))
     (list name matching non-matching)))
 
 (defun org-super-agenda--:discard (items group)
