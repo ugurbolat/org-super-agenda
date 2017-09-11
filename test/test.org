@@ -167,13 +167,23 @@ I don't know when I'll get to this, so it's undated.
 *Note:* Removing tests from here as they're added to =test.el=.
 
   #+BEGIN_SRC elisp
-    
 
-    
-    
+    (with-org-today-date "2017-07-05 00:00"
+      (let ((org-agenda-files (list "~/src/org-super-agenda/test/test.org"))
+            (org-agenda-span 'day)
+            (org-super-agenda-groups
+             '((:name none
+                      :time-grid t
+                      :transformer (--> it
+                                        (propertize it 'face '(:foreground "RosyBrown1"))
+                                        (upcase it)))
+               (:name "Bg should be red"
+                      :face (:background "green")
+                      :not (:priority>= "C")
+                      :order 100))))
+        (org-agenda nil "a")))
 
-    
-    
+
     (with-org-today-date "2017-07-05 00:00"
       (let ((org-agenda-files (list "~/src/org-super-agenda/test/test.org"))
             (org-agenda-span 'day)
@@ -185,10 +195,10 @@ I don't know when I'll get to this, so it's undated.
                       :order 100))))
         (org-agenda nil "a")))
 
-        
-    
 
-    
+
+
+
 
     (with-org-today-date "2017-07-05 00:00"
       (let ((org-agenda-files (list "~/src/org-super-agenda/test/test.org"))
@@ -256,7 +266,7 @@ I don't know when I'll get to this, so it's undated.
                               (:discard (:anything t)))))))))))
         (org-agenda nil "u")))
 
-    
+
 
     (with-org-today-date "2017-07-05 00:00"
       (let ((org-agenda-files (list "~/src/org-super-agenda/test/test.org"))

@@ -117,7 +117,7 @@
 ;;;; Variables
 
 (defconst org-super-agenda-special-selectors
-  '(:name :order)
+  '(:name :order :face :transformer)
   ;; This needs to be manually updated if any are added.
   "Special, non-grouping selectors.")
 
@@ -599,6 +599,17 @@ The string should be the priority cookie letter, e.g. \"A\".")
                  for custom-section-name = (plist-get filter :name)
                  for order = (or (plist-get filter :order) 0)  ; Lowest number first, 0 by default
                  for (auto-section-name non-matching matching) = (org-super-agenda--group-dispatch all-items filter)
+
+                 ;; Transformer
+                 for transformer = (plist-get filter :transformer)
+                 when transformer
+                 do (setq matching (-map `(lambda (it) ,transformer) matching))
+
+                 ;; Text properties
+                 for face = (plist-get filter :face)
+                 when face
+                 do (--each matching
+                      (add-face-text-property 0 (length it) face nil it))
 
                  ;; Auto category/group
                  if (cl-member auto-section-name '(:auto-group :auto-category))
