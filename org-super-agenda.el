@@ -985,6 +985,28 @@ of the arguments to the function."
                  (ts< (get-text-property 0 'org-super-agenda-ts a)
                       (get-text-property 0 'org-super-agenda-ts b))))
 
+;; NOTE copy-paste solution for auto-ts-reverse
+(org-super-agenda--def-auto-group ts
+  "the date of their earlist timestamp anywhere in the entry (formatted according to `org-super-agenda-date-format', which see)"
+  :keyword :auto-ts-reverse
+  :key-form (org-super-agenda--when-with-marker-buffer (org-super-agenda--get-marker item)
+              (let* ((limit (org-entry-end-position))
+                     (earliest-ts (->> (cl-loop for earliest-ts =
+                                                (when (re-search-forward org-element--timestamp-regexp limit t)
+                                                  (ts-parse-org (match-string 1)))
+                                                while earliest-ts
+                                                collect earliest-ts)
+                                       ;;(message "ts-reverse")
+                                       (-sort #'ts<)
+                                       car)))
+                (when earliest-ts
+                  (propertize (ts-format org-super-agenda-date-format earliest-ts)
+                              'org-super-agenda-ts earliest-ts))))
+  :key-sort-fn (lambda (a b)
+                 (ts> (get-text-property 0 'org-super-agenda-ts a)
+                      (get-text-property 0 'org-super-agenda-ts b))))
+
+
 (org-super-agenda--def-auto-group items "their AGENDA-GROUP property"
   :keyword :auto-group
   :key-form (org-entry-get (org-super-agenda--get-marker item)
